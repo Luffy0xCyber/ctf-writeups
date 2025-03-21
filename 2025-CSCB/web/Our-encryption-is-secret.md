@@ -1,9 +1,6 @@
 # Our encryption is secret
 
 
-## Estimated difficulty  
-Medium  
-
 ## Description  
 In this challenge, participants are given a series of password-protected ZIP files. Each archive contains a text file with a single character, and the goal is to extract all characters to recover the final flag. However, the password for each ZIP file is not given and must be computed.
 
