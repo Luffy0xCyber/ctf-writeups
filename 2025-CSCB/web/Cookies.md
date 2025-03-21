@@ -27,69 +27,65 @@ Example cookie:
 guest|2025-03-14T12:09:19.838Z|VUVXRllXRkhCQDNEV0lEXk9USlpfRl0p
 ```
 
-We reverse engineered the signature logic from the TypeScript code and identified the following signature generation process:
+###  Signature Generation Logic
+
+From the TypeScript file, we deduce that the signature is generated as:
 
 ```
 signature = (((value ^ secret_key) ^ timestamp) ^ secret_key)
 ```
 
-Since XOR is commutative and associative, we simplify:
+But because XOR is **commutative and associative**, we can simplify:
 
 ```
-signature = value ^ timestamp
+signature = value ^ secret_key ^ timestamp ^ secret_key
+         = value ^ timestamp  (since secret_key ^ secret_key = 0)
 ```
 
-This is because:
+###  Forgery Plan
+
+So to forge a cookie as `admin`:
+
+1. Extract the timestamp from the original session cookie.
+2. XOR `admin` with the timestamp string to generate a valid signature.
+3. Recreate the session cookie in this format:
 ```
-(value ^ secret ^ timestamp ^ secret) = value ^ timestamp
+admin|timestamp|<generated_signature>
 ```
 
-So, to forge a session as `admin`:
-1. Extract the timestamp from the existing cookie.
-2. XOR `admin` with the timestamp string to generate the new signature.
-3. Reconstruct the cookie as:
-
-```
-admin|timestamp|new_signature
-```
-
-### Python Script
+## Python Script
 
 ```python
-def xor_bytes(a: bytes, b: bytes) -> bytes:
-    return bytes([x ^ y for x, y in zip(a, b)])
-
-# Original values
-old_value = b"guest"
-new_value = b"admin"
-timestamp = b"2025-03-14T12:09:19.838Z"
-
-# Reproduce the original signature by XORing guest with timestamp
-# Then, generate the new signature by XORing admin with the same timestamp
-# Padding the shorter input if necessary
-def pad(b1, b2):
-    length = max(len(b1), len(b2))
-    return b1.ljust(length, b'_'), b2.ljust(length, b'_')
-
-old_value_p, timestamp_p = pad(old_value, timestamp)
-original_signature = xor_bytes(old_value_p, timestamp_p)
-
-new_value_p, _ = pad(new_value, timestamp)
-new_signature = xor_bytes(new_value_p, timestamp_p)
-
-# Convert signature to base64 if required by the server (depends on implementation)
 import base64
-sig_b64 = base64.b64encode(new_signature).decode()
 
-print(f"Forged cookie: admin|{timestamp.decode()}|{sig_b64}")
+def xor_strings(str1: str, str2: str) -> str:
+    length = max(len(str1), len(str2))
+    return ''.join(
+        chr(ord(str1[i % len(str1)]) ^ ord(str2[i % len(str2)]))
+        for i in range(length)
+    )
+
+# Example usage
+str1 = "admin"
+str2 = "2025-03-14T12:06:22.873Z"
+
+# XOR admin with timestamp
+result = xor_strings(str1, str2)
+
+# Base64 encode the result to match server's expected signature format
+result = base64.b64encode(result.encode())
+print("XOR Result:", result.decode())
 ```
 
-## Final Forged Cookie  
+Once you run this, you'll get a base64-encoded string you can use as the signature.
+
+###  Final Forged Cookie
+
 ```
-admin|2025-03-14T12:09:19.838Z|<generated_signature>
+admin|2025-03-14T12:06:22.873Z|<generated_signature>
 ```
 
-Replace the session cookie in your browser with the forged one to access the protected page.
+Replace the session cookie in your browser with this forged value, reload the page, and you will get access to the protected area.
 
 ## Flag  
 ```
