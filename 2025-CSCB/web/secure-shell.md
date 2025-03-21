@@ -1,4 +1,4 @@
-# Secure Share – CSCBE 2025
+# Secure Share
 
 ## Category  
 Web
